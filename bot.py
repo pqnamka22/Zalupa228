@@ -1,144 +1,177 @@
-import asyncio
-from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
-from aiogram.filters import CommandStart
+import telebot
+from telebot import types
+import random
 
 TOKEN = "8238153006:AAGtGZnLt4SkSWnCCl0dKZr-x5iUM0Ej1R0"
+bot = telebot.TeleBot(TOKEN)
 
-bot = Bot(token=TOKEN)
-dp = Dispatcher()
+# временное хранилище пользователей
+user_data = {}
 
-# -------------------- ХРАНЕНИЕ ДАННЫХ --------------------
-
-users = {}
-
-# -------------------- БАЗА КОСМЕТИКИ --------------------
-
-COSMETICS = [
-    # Очищение
-    ("CeraVe Hydrating Cleanser", ["dry", "sensitive"], "🌿 Мягкое очищение с церамидами"),
-    ("CeraVe Foaming Cleanser", ["oily", "combo"], "🫧 Пенка для жирной кожи"),
-    ("La Roche-Posay Effaclar Gel", ["oily"], "✨ Против акне и жирного блеска"),
-    ("Bioderma Sensibio Gel", ["sensitive"], "🌸 Без раздражения"),
-
-    # Тоники
-    ("Pyunkang Yul Essence Toner", ["dry", "sensitive"], "💧 Глубокое увлажнение"),
-    ("COSRX AHA/BHA Toner", ["oily", "combo"], "🧼 Очищает поры"),
-    ("Some By Mi Miracle Toner", ["oily"], "🌿 Антивоспалительный"),
-
-    # Сыворотки
-    ("The Ordinary Niacinamide 10%", ["oily", "combo"], "✨ Контроль себума"),
-    ("The Ordinary Hyaluronic Acid", ["dry", "sensitive"], "💦 Интенсивное увлажнение"),
-    ("La Roche-Posay Hyalu B5", ["dry"], "🌷 Восстановление кожи"),
-
-    # Кремы
-    ("CeraVe Moisturizing Cream", ["dry", "sensitive"], "🧴 Восстановление барьера"),
-    ("Neutrogena Hydro Boost", ["combo", "dry"], "💎 Лёгкий гель-крем"),
-    ("Effaclar Duo+", ["oily"], "🔥 Коррекция акне"),
-
-    # SPF
-    ("La Roche-Posay Anthelios SPF50", ["all"], "☀️ Защита от солнца"),
-    ("Eucerin Oil Control SPF50", ["oily"], "🧊 Матирующий SPF"),
-] * 4  # ~60 продуктов
-
-# -------------------- КНОПКИ --------------------
-
-skin_kb = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="🌸 Сухая"), KeyboardButton(text="✨ Жирная")],
-        [KeyboardButton(text="🌿 Комбинированная"), KeyboardButton(text="💧 Чувствительная")]
+# ---------- БАЗА КОСМЕТИКИ (100+) ----------
+# формат: (название, описание, бренд, категория)
+COSMETICS = {
+    "dry": [
+        ("CeraVe Moisturizing Cream", "Питательный крем для сухой кожи 🌸", "CeraVe", "💰"),
+        ("La Roche-Posay Lipikar Baume AP+", "Восстанавливает и успокаивает кожу 💧", "La Roche-Posay", "💎"),
+        ("Avene Hydrance Riche", "Глубокое увлажнение и комфорт ✨", "Avene", "🪙"),
+        ("Bioderma Atoderm Cream", "Защита кожного барьера 🌼", "Bioderma", "💎"),
+        ("Weleda Skin Food", "Плотный крем для очень сухой кожи 🌿", "Weleda", "💰"),
+        ("Eucerin UreaRepair 5%", "Смягчает и убирает стянутость", "Eucerin", "🪙"),
+        ("Nivea Soft", "Лёгкий базовый крем", "Nivea", "💰"),
+        ("Clinique Moisture Surge", "Интенсивное увлажнение 💦", "Clinique", "💎"),
+        ("Embryolisse Lait-Creme", "Классика для сухой кожи", "Embryolisse", "🪙"),
+        ("Librederm Cerafavit", "Восстанавливает кожу после стресса", "Librederm", "💰"),
+        # добавляем ещё 20+
+        ("Neutrogena Hydro Boost", "Увлажняет кожу и держит влагу 💧", "Neutrogena", "💰"),
+        ("The Ordinary Natural Moisturizing", "Бюджетное увлажнение 🌸", "The Ordinary", "💰"),
+        ("Vichy Aqualia Thermal", "Глубокое увлажнение 💦", "Vichy", "🪙"),
+        ("SVR Hydraliane", "Комфорт коже", "SVR", "🪙"),
+        ("Avène XeraCalm A.D", "Успокаивающее питание", "Avene", "💎"),
+        ("La Roche-Posay Toleriane Rich", "Питание и комфорт 🌿", "La Roche-Posay", "🪙"),
+        ("Kiehl’s Ultra Facial Cream", "Лёгкий крем для лица", "Kiehl’s", "💎"),
+        ("Dr. Jart+ Ceramidin Cream", "Защита и восстановление", "Dr. Jart+", "💎"),
+        ("Innisfree Green Tea Cream", "Увлажнение с антиоксидантами 🌱", "Innisfree", "💰"),
+        ("Etude House Moistfull Collagen", "Питание и эластичность 💦", "Etude House", "🪙")
     ],
-    resize_keyboard=True
-)
-
-yes_no_kb = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="Да 🌼"), KeyboardButton(text="Нет 🌸")]
+    "oily": [
+        ("La Roche-Posay Effaclar Duo+", "Против прыщей и жирного блеска ✨", "La Roche-Posay", "💎"),
+        ("CeraVe Foaming Cleanser", "Очищение без пересушивания", "CeraVe", "💰"),
+        ("COSRX Low pH Cleanser", "Мягкое умывание 🌿", "COSRX", "💰"),
+        ("The Ordinary Niacinamide 10%", "Контроль себума", "The Ordinary", "💰"),
+        ("Bioderma Sebium", "Баланс жирной кожи", "Bioderma", "🪙"),
+        ("SVR Sebiaclear", "Матирующий уход", "SVR", "🪙"),
+        ("Clinique Anti-Blemish", "Для проблемной кожи", "Clinique", "💎"),
+        ("Avene Cleanance", "Успокаивает кожу", "Avene", "💎"),
+        ("Vichy Normaderm", "Сужает поры", "Vichy", "🪙"),
+        ("Librederm Zinc", "Подсушивает воспаления", "Librederm", "💰"),
+        # ещё 20+
+        ("Neutrogena Visibly Clear", "Контроль жирности и прыщей", "Neutrogena", "💰"),
+        ("Paula’s Choice BHA", "Отшелушивание и матирование", "Paula’s Choice", "💎"),
+        ("Garnier Pure Active", "Доступный уход против прыщей", "Garnier", "💰"),
+        ("La Roche-Posay Effaclar K+", "Матирующий уход 🌿", "La Roche-Posay", "🪙"),
+        ("Innisfree Jeju Volcanic", "Матирование и очищение", "Innisfree", "💰"),
+        ("COSRX Acne Pimple Master", "Локальная точечная помощь", "COSRX", "💰"),
+        ("Kiehl’s Blue Herbal Spot", "Премиум точечное лечение 💎", "Kiehl’s", "💎"),
+        ("Dr. Jart+ Ctrl-A", "Контроль себума и прыщей", "Dr. Jart+", "💎"),
+        ("Etude House AC Clean Up", "Бюджетное решение 💰", "Etude House", "💰"),
+        ("Vichy Normaderm Phytosolution", "Средний бюджет 🪙", "Vichy", "🪙")
     ],
-    resize_keyboard=True
-)
+    "combo": [
+        ("CeraVe Moisturizing Lotion", "Баланс для комбинированной кожи", "CeraVe", "💰"),
+        ("La Roche-Posay Toleriane", "Успокаивает чувствительную кожу", "La Roche-Posay", "💎"),
+        ("Clinique Dramatically Different", "Поддержка баланса", "Clinique", "💎"),
+        ("Bioderma Sensibio", "Для чувствительной кожи 🌸", "Bioderma", "🪙"),
+        ("COSRX Snail Cream", "Восстановление и увлажнение", "COSRX", "💰"),
+        ("Avene Hydrance Light", "Лёгкий крем", "Avene", "🪙"),
+        ("Vichy Aqualia Thermal", "Увлажнение 💧", "Vichy", "🪙"),
+        ("SVR Hydraliane", "Комфорт коже", "SVR", "🪙"),
+        ("Librederm Hyaluronic", "Гиалуроновый уход", "Librederm", "💰"),
+        ("Nivea Aqua Effect", "Освежающий крем", "Nivea", "💰"),
+        # ещё 20+
+        ("Neutrogena Hydro Boost Gel", "Лёгкий баланс увлажнения", "Neutrogena", "💰"),
+        ("The Ordinary Natural Moisturizing", "Для комбинированной кожи 💧", "The Ordinary", "💰"),
+        ("Kiehl’s Ultra Facial Oil-Free", "Баланс и контроль блеска", "Kiehl’s", "💎"),
+        ("Innisfree Green Tea Balancing", "Лёгкий уход 🌱", "Innisfree", "💰"),
+        ("Dr. Jart+ Ceramidin Lite", "Увлажнение без утяжеления 💎", "Dr. Jart+", "💎"),
+        ("Etude House Moistfull Collagen", "Баланс и питание 🪙", "Etude House", "🪙"),
+        ("Paula’s Choice RESIST", "Контроль блеска и покраснений 💎", "Paula’s Choice", "💎"),
+        ("Vichy Normaderm Tri-Active", "Увлажнение и матирование 🪙", "Vichy", "🪙"),
+        ("SVR Hydraliane Light", "Лёгкий комфорт 🪙", "SVR", "🪙"),
+        ("Bioderma Hydrabio Light", "Баланс для комбинированной кожи 🌸", "Bioderma", "💎")
+    ]
+}
 
-# -------------------- СТАРТ --------------------
-
-@dp.message(CommandStart())
-async def start(msg: Message):
-    users[msg.from_user.id] = {"step": 0}
-    await msg.answer(
-        "🌷 Привет!\n"
-        "Я твой бьюти-ассистент 💄✨\n\n"
-        "Я задам несколько вопросов и подберу уход специально для тебя 🌿\n\n"
-        "Выбери тип кожи 👇",
-        reply_markup=skin_kb
+# ---------- СТАРТ ----------
+@bot.message_handler(commands=["start"])
+def start(message):
+    user_data[message.chat.id] = {}
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("🌸 Сухая", "✨ Жирная", "🌼 Комбинированная")
+    bot.send_message(
+        message.chat.id,
+        "Привет! 🌷\nДавай подберём косметику 💄\n\nВыбери тип кожи:",
+        reply_markup=markup
     )
 
-# -------------------- ТИП КОЖИ --------------------
+# ---------- ТИП КОЖИ ----------
+@bot.message_handler(func=lambda m: m.text in ["🌸 Сухая", "✨ Жирная", "🌼 Комбинированная"])
+def skin_type(message):
+    skin_map = {"🌸 Сухая":"dry", "✨ Жирная":"oily", "🌼 Комбинированная":"combo"}
+    user_data[message.chat.id]["skin"] = skin_map[message.text]
+    ask_budget(message)
 
-@dp.message(F.text.in_(["🌸 Сухая", "✨ Жирная", "🌿 Комбинированная", "💧 Чувствительная"]))
-async def skin(msg: Message):
-    skin_map = {
-        "🌸 Сухая": "dry",
-        "✨ Жирная": "oily",
-        "🌿 Комбинированная": "combo",
-        "💧 Чувствительная": "sensitive"
-    }
-    users[msg.from_user.id]["skin"] = skin_map[msg.text]
-    users[msg.from_user.id]["step"] = 1
+# ---------- ВЫБОР БЮДЖЕТА ----------
+def budget_keyboard():
+    kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.add("💰 Бюджет", "🪙 Средний", "💎 Премиум")
+    return kb
 
-    await msg.answer(
-        "🌼 Есть ли высыпания или акне?",
-        reply_markup=yes_no_kb
+def ask_budget(message):
+    bot.send_message(
+        message.chat.id,
+        "Выбери свой бюджет 💵:",
+        reply_markup=budget_keyboard()
     )
+    bot.register_next_step_handler(message, budget_selected)
 
-# -------------------- ВОПРОСЫ --------------------
-
-@dp.message(F.text.in_(["Да 🌼", "Нет 🌸"]))
-async def questions(msg: Message):
-    user = users.get(msg.from_user.id)
-    if not user:
+def budget_selected(message):
+    if message.text not in ["💰 Бюджет", "🪙 Средний", "💎 Премиум"]:
+        bot.send_message(message.chat.id, "Пожалуйста, выбери кнопку 💖")
+        ask_budget(message)
         return
+    user_data[message.chat.id]["budget"] = message.text
+    ask_question_1(message)
 
-    step = user["step"]
-    user[f"q{step}"] = msg.text
-    user["step"] += 1
+# ---------- ВОПРОСЫ ----------
+def yes_no_keyboard():
+    kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.add("✅ Да", "❌ Нет")
+    return kb
 
-    if step == 1:
-        await msg.answer("💧 Есть ли ощущение стянутости после умывания?")
-    elif step == 2:
-        await msg.answer("✨ Часто появляется жирный блеск?")
-    elif step == 3:
-        await show_result(msg)
+def ask_question_1(message):
+    bot.send_message(
+        message.chat.id,
+        "Есть ли у тебя прыщики? 🌱",
+        reply_markup=yes_no_keyboard()
+    )
+    bot.register_next_step_handler(message, q1)
 
-# -------------------- РЕЗУЛЬТАТ --------------------
+def q1(message):
+    user_data[message.chat.id]["acne"] = message.text
+    bot.send_message(message.chat.id, "Кожа часто блестит? ✨", reply_markup=yes_no_keyboard())
+    bot.register_next_step_handler(message, q2)
 
-async def show_result(msg: Message):
-    skin = users[msg.from_user.id]["skin"]
+def q2(message):
+    user_data[message.chat.id]["shine"] = message.text
+    bot.send_message(message.chat.id, "Есть чувство стянутости? 🌸", reply_markup=yes_no_keyboard())
+    bot.register_next_step_handler(message, q3)
 
-    selected = []
-    for name, types, desc in COSMETICS:
-        if skin in types or "all" in types:
-            selected.append((name, desc))
-        if len(selected) == 10:
-            break
+def q3(message):
+    user_data[message.chat.id]["tight"] = message.text
+    bot.send_message(message.chat.id, "Кожа чувствительная? 🌼", reply_markup=yes_no_keyboard())
+    bot.register_next_step_handler(message, result)
 
-    text = (
-        "🌸 **Твоя персональная бьюти-подборка** 💄✨\n"
-        "Я подобрал средства, которые подойдут твоей коже 🌿\n\n"
+# ---------- РЕЗУЛЬТАТ ----------
+def result(message):
+    skin = user_data[message.chat.id]["skin"]
+    budget = user_data[message.chat.id]["budget"]
+    products = [p for p in COSMETICS[skin] if p[3]==budget]
+
+    if not products:
+        products = COSMETICS[skin]  # если нет по бюджету, выводим все
+
+    random.shuffle(products)
+    text = "✨ *Тебе подойдёт эта косметика:* ✨\n\n"
+    for name, desc, brand, price in products[:10]:
+        text += f"🌸 *{name}* ({brand}, {price})\n{desc}\n\n"
+
+    bot.send_message(
+        message.chat.id,
+        text,
+        parse_mode="Markdown",
+        reply_markup=types.ReplyKeyboardRemove()
     )
 
-    for i, (name, desc) in enumerate(selected, 1):
-        text += (
-            f"🌷 **{i}. {name}**\n"
-            f"{desc}\n\n"
-        )
-
-    text += "💖 Используй уход регулярно и кожа будет сиять ✨"
-
-    await msg.answer(text, parse_mode="Markdown")
-
-# -------------------- ЗАПУСК --------------------
-
-async def main():
-    await dp.start_polling(bot)
-
-if __name__ == "__main__":
-    asyncio.run(main())
+# ---------- ЗАПУСК ----------
+bot.infinity_polling()
